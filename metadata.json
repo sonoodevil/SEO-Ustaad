@@ -1,0 +1,6 @@
+{
+  "name": "SEO Ustaad",
+  "description": "Bilingual (Urdu/English) Digital Marketing & SEO LMS with 12-week curriculum, daily stay timer counter, interactive checklist, curated free demo sandboxes, automated AI practice marking with mistake corrections, and side-docked companion search.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
