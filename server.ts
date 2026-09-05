@@ -3,6 +3,16 @@ import path from "path";
 import dotenv from "dotenv";
 import { GoogleGenAI, Modality } from "@google/genai";
 import { createServer as createViteServer } from "vite";
+import { requireAuth, AuthRequest } from "./src/middleware/auth.ts";
+import {
+  getOrCreateUser,
+  logStudySession,
+  getUserStudySessions,
+  setChecklistStatus,
+  getUserChecklist,
+  savePracticeSubmission,
+  getUserPracticeSubmissions,
+} from "./src/db/users.ts";
 
 dotenv.config();
 
@@ -254,6 +264,137 @@ Evaluate the work thoroughly. Return a strict JSON response (do NOT wrap in mark
     return res.status(500).json({
       error: error?.message || "Failed to evaluate via Gemini",
     });
+  }
+});
+
+// ==================== CLOUD SQL USER & SYNC ROUTES ====================
+
+// Synchronize authenticated user to Cloud SQL
+app.post("/api/auth/sync-user", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const uid = req.user?.uid;
+    const email = req.user?.email || "";
+    const displayName = req.body?.displayName;
+
+    if (!uid) {
+      return res.status(401).json({ error: "Missing user UID in token" });
+    }
+
+    const user = await getOrCreateUser(uid, email, displayName);
+    return res.json({ success: true, user });
+  } catch (error: any) {
+    console.error("Failed to sync user to Cloud SQL:", error);
+    return res.status(500).json({ error: error?.message || "Failed to sync user" });
+  }
+});
+
+// Log study stay session to Cloud SQL
+app.post("/api/user/study-session", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const uid = req.user?.uid;
+    const { dayKey, durationSeconds, date } = req.body;
+
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+    if (!dayKey || typeof durationSeconds !== "number") {
+      return res.status(400).json({ error: "dayKey and durationSeconds are required" });
+    }
+
+    const session = await logStudySession(
+      uid,
+      dayKey,
+      durationSeconds,
+      date || new Date().toISOString().split("T")[0]
+    );
+    return res.json({ success: true, session });
+  } catch (error: any) {
+    console.error("Failed to log study session:", error);
+    return res.status(500).json({ error: error?.message || "Failed to log session" });
+  }
+});
+
+// Get user's study sessions from Cloud SQL
+app.get("/api/user/study-session", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const uid = req.user?.uid;
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+
+    const sessions = await getUserStudySessions(uid);
+    return res.json({ sessions });
+  } catch (error: any) {
+    console.error("Failed to get study sessions:", error);
+    return res.status(500).json({ error: error?.message || "Failed to get sessions" });
+  }
+});
+
+// Update checklist status in Cloud SQL
+app.post("/api/user/checklist", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const uid = req.user?.uid;
+    const { taskKey, completed } = req.body;
+
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+    if (!taskKey || typeof completed !== "boolean") {
+      return res.status(400).json({ error: "taskKey and completed boolean are required" });
+    }
+
+    const item = await setChecklistStatus(uid, taskKey, completed);
+    return res.json({ success: true, item });
+  } catch (error: any) {
+    console.error("Failed to update checklist in Cloud SQL:", error);
+    return res.status(500).json({ error: error?.message || "Failed to update checklist" });
+  }
+});
+
+// Get user checklist from Cloud SQL
+app.get("/api/user/checklist", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const uid = req.user?.uid;
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+
+    const checklist = await getUserChecklist(uid);
+    return res.json({ checklist });
+  } catch (error: any) {
+    console.error("Failed to get checklist:", error);
+    return res.status(500).json({ error: error?.message || "Failed to get checklist" });
+  }
+});
+
+// Save practice submission to Cloud SQL
+app.post("/api/user/submissions", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const uid = req.user?.uid;
+    const { topicTitle, submissionText, overallScore, feedbackJson } = req.body;
+
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+    if (!topicTitle || !submissionText) {
+      return res.status(400).json({ error: "topicTitle and submissionText are required" });
+    }
+
+    const submission = await savePracticeSubmission(
+      uid,
+      topicTitle,
+      submissionText,
+      overallScore,
+      feedbackJson
+    );
+    return res.json({ success: true, submission });
+  } catch (error: any) {
+    console.error("Failed to save submission to Cloud SQL:", error);
+    return res.status(500).json({ error: error?.message || "Failed to save submission" });
+  }
+});
+
+// Get user submissions from Cloud SQL
+app.get("/api/user/submissions", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const uid = req.user?.uid;
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+
+    const submissions = await getUserPracticeSubmissions(uid);
+    return res.json({ submissions });
+  } catch (error: any) {
+    console.error("Failed to get submissions:", error);
+    return res.status(500).json({ error: error?.message || "Failed to get submissions" });
   }
 });
 

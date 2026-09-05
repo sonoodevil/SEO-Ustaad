@@ -12,7 +12,8 @@ export type ActiveTab =
   | "templates"
   | "resources"
   | "certificate"
-  | "profile";
+  | "profile"
+  | "workspace";
 export type WeekDetailTab = "lesson" | "terms" | "task" | "quiz" | "watch";
 export type WeekId =
   | "w1"

@@ -17,6 +17,9 @@ import {
   INITIAL_ACHIEVEMENTS,
   INITIAL_TASK_PROGRESS,
 } from "./data/userProfile";
+import { User } from "firebase/auth";
+import { initAuth, googleSignIn, logout, testFirestoreConnection } from "./lib/firebase";
+import { WorkspaceHub } from "./components/WorkspaceHub";
 import {
   ActiveTab,
   WeekId,
@@ -36,6 +39,68 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("curriculum");
   const [activeWeekId, setActiveWeekId] = useState<WeekId>("w1");
   const [activeDetailTab, setActiveDetailTab] = useState<WeekDetailTab>("lesson");
+
+  // Firebase Auth & Cloud SQL User State
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    testFirestoreConnection();
+    const unsubscribe = initAuth(
+      async (user, token) => {
+        setCurrentUser(user);
+        if (token) setAccessToken(token);
+        if (user) {
+          try {
+            const idToken = await user.getIdToken();
+            await fetch("/api/auth/sync-user", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${idToken}`,
+              },
+              body: JSON.stringify({ displayName: user.displayName }),
+            });
+          } catch (e) {
+            console.warn("Cloud SQL user sync:", e);
+          }
+        }
+      },
+      () => {
+        setCurrentUser(null);
+        setAccessToken(null);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleSignIn = async () => {
+    try {
+      const res = await googleSignIn();
+      if (res) {
+        setCurrentUser(res.user);
+        setAccessToken(res.accessToken);
+        const idToken = await res.user.getIdToken();
+        await fetch("/api/auth/sync-user", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ displayName: res.user.displayName }),
+        });
+      }
+    } catch (e) {
+      console.error("Sign in failed:", e);
+    }
+  };
+
+  const handleSignOut = async () => {
+    await logout();
+    setCurrentUser(null);
+    setAccessToken(null);
+  };
 
   // Modals
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -484,8 +549,11 @@ export default function App() {
         onLangModeChange={setLangMode}
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenTutor={() => setIsTutorOpen(true)}
-        studentName={userProfile.name}
+        studentName={currentUser?.displayName || userProfile.name}
         studentAvatar={userProfile.avatar}
+        user={currentUser}
+        onSignIn={handleSignIn}
+        onSignOut={handleSignOut}
       />
 
       {/* Main View Area */}
@@ -502,6 +570,17 @@ export default function App() {
             onSaveQuizScore={handleSaveQuizScore}
             onPlayLessonAudio={handlePlayAudio}
             langMode={langMode}
+          />
+        )}
+
+        {activeTab === "workspace" && (
+          <WorkspaceHub
+            user={currentUser}
+            accessToken={accessToken}
+            onSignIn={handleSignIn}
+            onSignOut={handleSignOut}
+            studentName={currentUser?.displayName || userProfile.name}
+            activeWeekTitle={CURRICULUM.find((w) => w.id === activeWeekId)?.title.en}
           />
         )}
 

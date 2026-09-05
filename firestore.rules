@@ -1,0 +1,98 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default Deny All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidUser(data, userId) {
+      return data.uid == userId &&
+        data.email is string && data.email.size() <= 150 &&
+        (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
+        (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    function isValidSession(data, userId) {
+      return data.userId == userId &&
+        data.dayKey is string && data.dayKey.size() <= 50 &&
+        data.durationSeconds is number && data.durationSeconds >= 0 &&
+        data.date is string && data.date.size() <= 20 &&
+        (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    function isValidChecklist(data, userId) {
+      return data.userId == userId &&
+        data.taskKey is string && data.taskKey.size() <= 100 &&
+        data.completed is bool &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidSubmission(data, userId) {
+      return data.userId == userId &&
+        data.topicTitle is string && data.topicTitle.size() <= 150 &&
+        data.submissionText is string && data.submissionText.size() <= 10000 &&
+        (!('overallScore' in data) || (data.overallScore is string && data.overallScore.size() <= 10)) &&
+        (!('feedbackJson' in data) || (data.feedbackJson is string && data.feedbackJson.size() <= 25000)) &&
+        (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    // Student Profile Match
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(incoming(), userId);
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUser(incoming(), userId) &&
+        incoming().uid == existing().uid;
+      allow delete: if false;
+
+      // Student Study Sessions
+      match /sessions/{sessionId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(sessionId) && isValidSession(incoming(), userId);
+        allow update: if isOwner(userId) && isValidId(sessionId) && isValidSession(incoming(), userId) &&
+          incoming().userId == existing().userId;
+        allow delete: if isOwner(userId) && isValidId(sessionId);
+      }
+
+      // Student Checklist Items
+      match /checklist/{taskId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(taskId) && isValidChecklist(incoming(), userId);
+        allow update: if isOwner(userId) && isValidId(taskId) && isValidChecklist(incoming(), userId) &&
+          incoming().userId == existing().userId;
+        allow delete: if isOwner(userId) && isValidId(taskId);
+      }
+
+      // Student Practice Submissions
+      match /submissions/{submissionId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(submissionId) && isValidSubmission(incoming(), userId);
+        allow update: if isOwner(userId) && isValidId(submissionId) && isValidSubmission(incoming(), userId) &&
+          incoming().userId == existing().userId;
+        allow delete: if isOwner(userId) && isValidId(submissionId);
+      }
+    }
+  }
+}

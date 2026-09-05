@@ -28,6 +28,8 @@ import {
 } from "lucide-react";
 import { DAILY_STEPS, WEEKLY_PATTERN, CHECKPOINTS } from "../data/dailyPlan";
 import { PRACTICE_DEMO_MISSIONS, evaluateStudentPracticeSubmission } from "../data/practiceMissions";
+import { auth } from "../lib/firebase";
+import { DailyStayTimer } from "./DailyStayTimer";
 import {
   LanguageMode,
   DailyChecklistItem,
@@ -129,11 +131,28 @@ export const DailyPlanView: React.FC<DailyPlanViewProps> = ({ langMode, onOpenTu
     };
   }, [isTimerRunning]);
 
-  // Persist timer history to localStorage
+  // Persist timer history to localStorage & sync to Cloud SQL
   useEffect(() => {
     const updated = { ...timerHistory, [todayKey]: todaySeconds };
     setTimerHistory(updated);
     localStorage.setItem("seo_ustaad_stay_timer_data", JSON.stringify(updated));
+
+    if (auth.currentUser && todaySeconds > 0 && todaySeconds % 60 === 0) {
+      auth.currentUser.getIdToken().then((idToken) => {
+        fetch("/api/user/study-session", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            dayKey: todayKey,
+            durationSeconds: todaySeconds,
+            date: todayKey,
+          }),
+        }).catch((e) => console.warn("Stay timer session sync:", e));
+      });
+    }
   }, [todaySeconds, todayKey]);
 
   const formatTimer = (totalSec: number) => {
@@ -200,10 +219,31 @@ export const DailyPlanView: React.FC<DailyPlanViewProps> = ({ langMode, onOpenTu
       ? Math.round((completedCount / currentDayTasks.length) * 100)
       : 0;
 
-  const toggleChecklistItem = (id: string) => {
+  const toggleChecklistItem = async (id: string) => {
+    const item = checklistItems.find((t) => t.id === id);
+    const nextCompleted = item ? !item.completed : true;
     setChecklistItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, completed: !item.completed } : item))
+      prev.map((it) => (it.id === id ? { ...it, completed: nextCompleted } : it))
     );
+
+    if (auth.currentUser) {
+      try {
+        const idToken = await auth.currentUser.getIdToken();
+        await fetch("/api/user/checklist", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            taskKey: id,
+            completed: nextCompleted,
+          }),
+        });
+      } catch (e) {
+        console.warn("Checklist item Cloud SQL sync note:", e);
+      }
+    }
   };
 
   const handleAddCustomTask = (e: React.FormEvent) => {
@@ -307,6 +347,25 @@ export const DailyPlanView: React.FC<DailyPlanViewProps> = ({ langMode, onOpenTu
         const updated = [evalResult, ...evaluationHistory];
         setEvaluationHistory(updated);
         localStorage.setItem("seo_ustaad_practice_evaluations", JSON.stringify(updated));
+
+        if (auth.currentUser) {
+          auth.currentUser.getIdToken().then((idToken) => {
+            fetch("/api/user/submissions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${idToken}`,
+              },
+              body: JSON.stringify({
+                topicTitle: evalTopic,
+                submissionText,
+                overallScore: String(evalResult.overallScore),
+                feedbackJson: JSON.stringify(evalResult),
+              }),
+            }).catch((e) => console.warn("Submission sync to Cloud SQL:", e));
+          });
+        }
+
         setIsEvaluating(false);
         return;
       }
@@ -428,128 +487,20 @@ export const DailyPlanView: React.FC<DailyPlanViewProps> = ({ langMode, onOpenTu
       </div>
 
       {/* ======================================================== */}
-      {/* STAY TIMER COUNTER (PER DAY STATS & ACTIVE STUDY ENGINE)  */}
+      {/* DAILY STAY TIMER (REAL-TIME COUNTDOWN / COUNTER ENGINE)  */}
       {/* ======================================================== */}
-      <div className="bg-[#0F0F0F] rounded-2xl p-6 border border-white/10 shadow-sm space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
-          <div>
-            <h3 className="font-semibold text-base text-white flex items-center gap-2">
-              <Timer className="w-5 h-5 text-blue-400" />
-              <span>Daily Stay Timer Counter • روزانہ کا مطالعہ کا ٹائمر</span>
-            </h3>
-            <p className="text-xs text-white/50 mt-0.5">
-              Tracks actual study time logged today ({todayKey}). Increases your daily consistency streak.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-white/50 font-medium">Daily Goal:</span>
-            <select
-              value={timerTargetMinutes}
-              onChange={(e) => setTimerTargetMinutes(Number(e.target.value))}
-              className="bg-[#0A0A0A] text-xs font-bold text-blue-400 border border-white/10 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-500"
-            >
-              <option value={25}>25 Min (Quick Pomodoro)</option>
-              <option value={45}>45 Min (Power Session)</option>
-              <option value={60}>60 Min (1 Hour Deep Work)</option>
-              <option value={90}>90 Min (Recommended Master Plan)</option>
-              <option value={120}>120 Min (Weekend Sprint)</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Timer Display & Controls */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-          {/* Main Clock */}
-          <div className="md:col-span-2 p-5 rounded-2xl bg-[#0A0A0A] border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-white/40 mb-1 flex items-center gap-1.5">
-                <span className={`w-2 h-2 rounded-full ${isTimerRunning ? "bg-emerald-400 animate-pulse" : "bg-white/30"}`} />
-                <span>{isTimerRunning ? "Actively Studying Today" : "Timer Paused"}</span>
-              </div>
-              <div className="text-4xl sm:text-5xl font-mono font-extrabold text-white tracking-tight">
-                {formatTimer(todaySeconds)}
-              </div>
-              <div className="text-xs text-white/50 mt-1 font-urdu-title">
-                ہدف: {timerTargetMinutes} منٹ • تکمیل: {timerProgressPercent}%
-              </div>
-            </div>
-
-            {/* Controls */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsTimerRunning(!isTimerRunning)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition shadow-lg ${
-                  isTimerRunning
-                    ? "bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20"
-                    : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/20"
-                }`}
-              >
-                {isTimerRunning ? (
-                  <>
-                    <Pause className="w-4 h-4" />
-                    <span>Pause Timer</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4 fill-current" />
-                    <span>Start Studying</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                onClick={() => setTodaySeconds((prev) => prev + 15 * 60)}
-                title="Add +15 minutes"
-                className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10 text-xs font-semibold transition"
-              >
-                +15m
-              </button>
-
-              <button
-                onClick={() => {
-                  if (confirm("Reset today's logged study time?")) {
-                    setTodaySeconds(0);
-                    setIsTimerRunning(false);
-                  }
-                }}
-                title="Reset timer"
-                className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/40 hover:text-rose-400 border border-white/10 transition"
-              >
-                <RotateCcw className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Progress Card */}
-          <div className="p-5 rounded-2xl bg-[#0A0A0A] border border-white/10 space-y-3">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-white/60 font-medium">Daily Goal Progress</span>
-              <span className="font-bold text-blue-400">{timerProgressPercent}%</span>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="w-full h-2.5 bg-white/10 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-blue-600 to-emerald-400 rounded-full transition-all duration-300"
-                style={{ width: `${timerProgressPercent}%` }}
-              />
-            </div>
-
-            <div className="flex items-center justify-between text-[11px] text-white/40 font-mono">
-              <span>{Math.floor(todaySeconds / 60)}m Logged</span>
-              <span>Target: {timerTargetMinutes}m</span>
-            </div>
-
-            {timerProgressPercent >= 100 && (
-              <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-1.5">
-                <Award className="w-3.5 h-3.5" />
-                <span>Daily Target Reached! آج کا ہدف مکمل ہوا</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      <DailyStayTimer
+        todaySeconds={todaySeconds}
+        setTodaySeconds={setTodaySeconds}
+        isTimerRunning={isTimerRunning}
+        setIsTimerRunning={setIsTimerRunning}
+        timerTargetMinutes={timerTargetMinutes}
+        setTimerTargetMinutes={setTimerTargetMinutes}
+        todayKey={todayKey}
+        timerHistory={timerHistory}
+        langMode={langMode}
+        activeTaskName={`Week 1 Learning • Day ${selectedDay} Routine`}
+      />
 
       {/* ======================================================== */}
       {/* SUB-VIEW 1: ROUTINE & THE 90-MINUTE 5-STEP CHAIN         */}

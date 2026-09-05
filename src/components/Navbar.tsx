@@ -12,8 +12,13 @@ import {
   Coffee,
   Languages,
   Bookmark,
-  User,
+  User as UserIcon,
+  FolderGit2,
+  Cloud,
+  Database,
+  LogIn,
 } from "lucide-react";
+import { User } from "firebase/auth";
 import { ActiveTab, ReadingTheme, LanguageMode } from "../types";
 
 interface NavbarProps {
@@ -29,6 +34,9 @@ interface NavbarProps {
   onOpenTutor: () => void;
   studentName?: string;
   studentAvatar?: string;
+  user?: User | null;
+  onSignIn?: () => void;
+  onSignOut?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -44,6 +52,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenTutor,
   studentName = "Waseem Ahmad",
   studentAvatar = "👨‍💻",
+  user = null,
+  onSignIn,
+  onSignOut,
 }) => {
   const percent = Math.round((completedWeeksCount / totalWeeks) * 100);
 
@@ -171,10 +182,46 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Award className="w-3.5 h-3.5" />
               <span>Certificate ({percent}%)</span>
             </button>
+
+            <button
+              id="nav-tab-workspace"
+              onClick={() => onTabChange("workspace")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                activeTab === "workspace"
+                  ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30 border border-blue-400/20"
+                  : "text-white/60 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <FolderGit2 className="w-3.5 h-3.5 text-blue-400" />
+              <span>Workspace Hub</span>
+            </button>
           </nav>
 
           {/* Right Action Tools */}
           <div className="flex items-center gap-2">
+            {/* Google Auth Status / Button */}
+            {user ? (
+              <div
+                onClick={() => onTabChange("workspace")}
+                className="hidden sm:flex items-center gap-2 px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg cursor-pointer transition"
+                title={`Connected: ${user.email}`}
+              >
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                <span className="text-xs font-medium text-white/90 max-w-[100px] truncate">
+                  {user.displayName?.split(" ")[0] || "Student"}
+                </span>
+              </div>
+            ) : (
+              <button
+                onClick={onSignIn}
+                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-medium rounded-lg transition"
+                title="Sign in with Google"
+              >
+                <LogIn className="w-3.5 h-3.5 text-blue-400" />
+                <span>Sign In</span>
+              </button>
+            )}
+
             {/* Global Search Button */}
             <button
               id="global-search-trigger"
@@ -294,6 +341,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}
           >
             سرٹیفکیٹ
+          </button>
+          <button
+            onClick={() => onTabChange("workspace")}
+            className={`px-2 py-1 text-xs rounded-md font-medium whitespace-nowrap ${
+              activeTab === "workspace"
+                ? "bg-blue-600 text-white"
+                : "text-white/60"
+            }`}
+          >
+            ورک اسپیس
           </button>
           <button
             onClick={() => onTabChange("profile")}

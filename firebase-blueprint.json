@@ -1,0 +1,143 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile for registered students",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase user UID"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User email address"
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "User display name"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Account registration timestamp"
+        }
+      },
+      "required": ["uid", "email"]
+    },
+    "StudySession": {
+      "title": "StudySession",
+      "description": "Daily stay timer progress log",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner student UID"
+        },
+        "dayKey": {
+          "type": "string",
+          "maxLength": 50,
+          "description": "Day identifier (e.g. d1, d2)"
+        },
+        "durationSeconds": {
+          "type": "number",
+          "description": "Time spent in seconds"
+        },
+        "date": {
+          "type": "string",
+          "maxLength": 20,
+          "description": "Date string YYYY-MM-DD"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Session record creation time"
+        }
+      },
+      "required": ["userId", "dayKey", "durationSeconds", "date"]
+    },
+    "ChecklistItem": {
+      "title": "ChecklistItem",
+      "description": "User progress on specific curriculum tasks",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner student UID"
+        },
+        "taskKey": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Curriculum task identifier"
+        },
+        "completed": {
+          "type": "boolean",
+          "description": "Completion status flag"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of status change"
+        }
+      },
+      "required": ["userId", "taskKey", "completed"]
+    },
+    "PracticeSubmission": {
+      "title": "PracticeSubmission",
+      "description": "AI graded student practical assignment submission",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner student UID"
+        },
+        "topicTitle": {
+          "type": "string",
+          "maxLength": 150,
+          "description": "Topic or lesson title"
+        },
+        "submissionText": {
+          "type": "string",
+          "maxLength": 10000,
+          "description": "Submitted work content"
+        },
+        "overallScore": {
+          "type": "string",
+          "maxLength": 10,
+          "description": "AI evaluation overall score"
+        },
+        "feedbackJson": {
+          "type": "string",
+          "maxLength": 25000,
+          "description": "Detailed AI feedback and mistakes JSON"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Submission timestamp"
+        }
+      },
+      "required": ["userId", "topicTitle", "submissionText"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Individual student profile documents"
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": "StudySession",
+      "description": "Daily stay timer logs belonging to a student"
+    },
+    "/users/{userId}/checklist/{taskId}": {
+      "schema": "ChecklistItem",
+      "description": "Student checklist item completions"
+    },
+    "/users/{userId}/submissions/{submissionId}": {
+      "schema": "PracticeSubmission",
+      "description": "Student AI practice submissions and marks"
+    }
+  }
+}
