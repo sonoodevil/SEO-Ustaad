@@ -12,6 +12,7 @@ interface AITutorModalProps {
   onClose: () => void;
   onPlayAudio: (text: string, title: string) => void;
   initialPrompt?: string;
+  customGeminiKey?: string;
 }
 
 const STARTER_PROMPTS = [
@@ -27,6 +28,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
   onClose,
   onPlayAudio,
   initialPrompt,
+  customGeminiKey,
 }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -75,6 +77,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
             parts: [{ text: m.text }],
           })),
           message: textToSend,
+          customApiKey: customGeminiKey,
         }),
       });
 

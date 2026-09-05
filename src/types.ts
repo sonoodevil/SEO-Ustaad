@@ -223,6 +223,7 @@ export interface UserProfile {
   dailyStudyMinutes: number;
   studyReminderTime: string;
   joinedDate: string;
+  customGeminiKey?: string;
 }
 
 export interface UserAchievement {

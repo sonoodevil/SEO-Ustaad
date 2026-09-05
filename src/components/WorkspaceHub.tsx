@@ -46,6 +46,9 @@ interface WorkspaceHubProps {
   activeWeekTitle?: string;
   checklistCount?: number;
   studyDurationMinutes?: number;
+  completedWeeksCount: number;
+  avgQuizScore: number;
+  totalStudySeconds: number;
 }
 
 type WorkspaceSubTab = 'drive' | 'sheets' | 'docs' | 'gmail' | 'tasks' | 'classroom';
@@ -59,10 +62,49 @@ export const WorkspaceHub: React.FC<WorkspaceHubProps> = ({
   activeWeekTitle = 'SEO Fundamentals & Keyword Research',
   checklistCount = 5,
   studyDurationMinutes = 45,
+  completedWeeksCount,
+  avgQuizScore,
+  totalStudySeconds,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<WorkspaceSubTab>('drive');
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const formatStudyTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return `${h}h ${m}m`;
+  };
+
+  const handleSyncProgressReportToSheets = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Sync Academic Progress to Google Sheets?',
+      description: 'This will generate a comprehensive "SEO Ustaad Learning Report" in your Google Sheets account, including your 12-week journey stats, total study time, and quiz accuracy.',
+      actionLabel: 'Sync to Sheets',
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          const headers = ['Metric', 'Value', 'Description'];
+          const rows = [
+            ['Student Name', studentName, 'Official name on record'],
+            ['Course Status', `${completedWeeksCount} / 12 Weeks`, 'Modules successfully completed'],
+            ['Total Study Time', formatStudyTime(totalStudySeconds), 'Total time logged in active learning'],
+            ['Average Quiz Score', `${avgQuizScore}%`, 'Cumulative accuracy across all attempts'],
+            ['Last Activity', new Date().toLocaleString(), 'Timestamp of last sync'],
+            ['Academic Level', avgQuizScore >= 80 ? 'Expert' : 'Practitioner', 'Calculated based on quiz performance'],
+          ];
+          const result = await createSEOSpreadsheet(`SEO Ustaad - Progress Report (${studentName})`, headers, rows);
+          setCreatedSheets((prev) => [{ title: 'Academic Progress Report', url: result.spreadsheetUrl }, ...prev]);
+          showNotification('success', 'Your learning report has been synced to Google Sheets!');
+        } catch (err: any) {
+          showNotification('error', `Failed to sync report: ${err.message}`);
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
+  };
 
   // Drive state
   const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
@@ -627,6 +669,16 @@ export const WorkspaceHub: React.FC<WorkspaceHubProps> = ({
                   >
                     <Plus className="w-4 h-4" />
                     <span>Create Keyword Matrix Spreadsheet</span>
+                  </button>
+
+                  <button
+                    id="sync-progress-sheets-btn"
+                    onClick={handleSyncProgressReportToSheets}
+                    disabled={loading}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-md shadow-blue-500/20 flex items-center gap-2 transition"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                    <span>Sync Progress Report to Sheets</span>
                   </button>
                 </div>
 

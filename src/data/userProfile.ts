@@ -10,6 +10,7 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   dailyStudyMinutes: 90,
   studyReminderTime: "20:00",
   joinedDate: "2026-08-01",
+  customGeminiKey: "",
 };
 
 export const INITIAL_SKILLS: SkillProficiency[] = [

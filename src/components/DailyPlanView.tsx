@@ -40,6 +40,7 @@ import {
 interface DailyPlanViewProps {
   langMode: LanguageMode;
   onOpenTutor: (query?: string) => void;
+  customGeminiKey?: string;
 }
 
 interface DailyLogEntry {
@@ -82,7 +83,11 @@ const DEFAULT_CHECKLIST_TEMPLATE: Array<Omit<DailyChecklistItem, "id" | "complet
   },
 ];
 
-export const DailyPlanView: React.FC<DailyPlanViewProps> = ({ langMode, onOpenTutor }) => {
+export const DailyPlanView: React.FC<DailyPlanViewProps> = ({ 
+  langMode, 
+  onOpenTutor,
+  customGeminiKey,
+}) => {
   // Navigation Sub-Tabs within Daily Plan
   const [activeSubTab, setActiveSubTab] = useState<"routine" | "checklist" | "demos" | "evaluator">("routine");
 
@@ -316,6 +321,7 @@ export const DailyPlanView: React.FC<DailyPlanViewProps> = ({ langMode, onOpenTu
         body: JSON.stringify({
           topicTitle: evalTopic,
           submissionText: submissionText,
+          customApiKey: customGeminiKey,
         }),
       });
 

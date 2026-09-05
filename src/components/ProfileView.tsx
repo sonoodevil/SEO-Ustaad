@@ -837,6 +837,43 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 Change Daily Goal & Reminder
               </button>
             </div>
+ 
+            {/* Custom Gemini API Key for Voice/Tutor Quota */}
+            <div className="p-4 rounded-xl bg-[#0A0A0A] border border-white/10 space-y-3">
+              <div className="flex items-center gap-2 text-white font-semibold text-xs">
+                <Sparkles className="w-4 h-4 text-emerald-400" />
+                <span>Personal Gemini API Key (Optional)</span>
+              </div>
+              <p className="text-xs text-white/50 leading-relaxed font-urdu-body">
+                آپ اپنی ذاتی API کی یہاں لکھ سکتے ہیں تاکہ **Unlimited Voice** اور **Tutor Chat** میسر ہو۔ یہ صرف آپ کے براؤزر میں محفوظ رہے گی۔
+                <br />
+                <span className="text-[10px] text-emerald-400/70 font-sans">Pro Tip: Personal keys avoid shared platform quota limits.</span>
+              </p>
+              <div className="relative">
+                <input
+                  type="password"
+                  value={userProfile.customGeminiKey || ""}
+                  onChange={(e) => onUpdateProfile({ customGeminiKey: e.target.value })}
+                  placeholder="AI Studio se li gayi Key yahan paste karein..."
+                  className="w-full bg-white/5 border border-white/10 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/20 outline-none transition"
+                />
+                {userProfile.customGeminiKey && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                    <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Active</span>
+                  </div>
+                )}
+              </div>
+              <a 
+                href="https://aistudio.google.com/app/apikey" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-[10px] text-blue-400 hover:text-blue-300 underline flex items-center gap-1"
+              >
+                <ExternalLink className="w-2.5 h-2.5" />
+                <span>Get your free key from Google AI Studio</span>
+              </a>
+            </div>
           </div>
 
           {/* Danger Zone: Reset Progress */}

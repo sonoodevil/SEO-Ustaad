@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Award, Download, Printer, CheckCircle2, User, Sparkles } from "lucide-react";
+import { Award, Download, Printer, CheckCircle2, User, Sparkles, FileText } from "lucide-react";
 import { buildEnglishCertificatePDF, buildUrduCertificatePDF } from "../utils/certificatePdf";
 import { LanguageMode } from "../types";
 
@@ -9,6 +9,7 @@ interface CertificateViewProps {
   completedWeeksCount: number;
   totalWeeks: number;
   avgQuizScore: number;
+  totalStudySeconds: number;
   langMode: LanguageMode;
 }
 
@@ -18,6 +19,7 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
   completedWeeksCount,
   totalWeeks,
   avgQuizScore,
+  totalStudySeconds,
   langMode,
 }) => {
   const [isDownloading, setIsDownloading] = useState(false);
@@ -28,6 +30,12 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
     day: "numeric",
     year: "numeric",
   });
+
+  const formatStudyTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return `${h}h ${m}m`;
+  };
 
   const handleDownloadEnglish = () => {
     setIsDownloading(true);
@@ -45,6 +53,12 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
     } finally {
       setIsDownloading(false);
     }
+  };
+
+  const handleDownloadReport = () => {
+    // We'll use window.print() on a specially formatted hidden div for simplicity
+    // but first we need to make sure the print styles are set
+    window.print();
   };
 
   const handlePrint = () => {
@@ -121,12 +135,96 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
           <Printer className="w-4 h-4" />
           <span>Print Certificate</span>
         </button>
+
+        <button
+          onClick={handleDownloadReport}
+          className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-500/20"
+        >
+          <FileText className="w-4 h-4" />
+          <span>Download Journey Report</span>
+        </button>
+      </div>
+
+      {/* Printable Report Summary (Hidden by default, visible in @media print) */}
+      <div className="hidden print:block fixed inset-0 z-[9999] bg-white text-slate-900 p-10 space-y-8 font-sans overflow-y-auto">
+        <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4">
+          <div>
+            <h1 className="text-3xl font-black uppercase tracking-tight">SEO Ustaad Student Report</h1>
+            <p className="text-slate-500 font-semibold tracking-wide uppercase text-xs mt-1">
+              Google Digital Garage & DigiSkills Learning Journey
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-xl font-bold">{studentName || "Student"}</div>
+            <div className="text-xs text-slate-500">{todayStr}</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-6">
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+            <div className="text-2xl font-black text-blue-600">{completedWeeksCount} / {totalWeeks}</div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Modules Finished</div>
+          </div>
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+            <div className="text-2xl font-black text-blue-600">{formatStudyTime(totalStudySeconds)}</div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Total Stay Time</div>
+          </div>
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+            <div className="text-2xl font-black text-blue-600">{avgQuizScore}%</div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Average Accuracy</div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold border-l-4 border-blue-600 pl-3">Learning Path Milestones</h2>
+          <div className="grid grid-cols-1 gap-2">
+            {[...Array(12)].map((_, i) => (
+              <div key={i} className={`flex items-center justify-between p-3 rounded-lg border ${i + 1 <= completedWeeksCount ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-100 opacity-50'}`}>
+                <div className="flex items-center gap-3">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${i + 1 <= completedWeeksCount ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                    {i + 1}
+                  </div>
+                  <div className="text-sm font-semibold">Week {i + 1}: {i === 0 ? "SEO Fundamentals" : i === 11 ? "Freelance & Agency" : "Module Focus"}</div>
+                </div>
+                {i + 1 <= completedWeeksCount && <CheckCircle2 className="w-4 h-4 text-blue-600" />}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="pt-6 border-t border-slate-200">
+          <h2 className="text-lg font-bold border-l-4 border-blue-600 pl-3 mb-4">Core Competencies Mastery</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs font-bold uppercase tracking-wide">
+                <span>Technical SEO</span>
+                <span>{Math.min(100, Math.round((completedWeeksCount / 12) * 100))}%</span>
+              </div>
+              <div className="w-full h-1.5 bg-slate-100 rounded-full">
+                <div className="bg-blue-600 h-full rounded-full" style={{ width: `${Math.min(100, Math.round((completedWeeksCount / 12) * 100))}%` }} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs font-bold uppercase tracking-wide">
+                <span>Content Strategy</span>
+                <span>{Math.min(100, Math.round((completedWeeksCount / 12) * 100))}%</span>
+              </div>
+              <div className="w-full h-1.5 bg-slate-100 rounded-full">
+                <div className="bg-blue-600 h-full rounded-full" style={{ width: `${Math.min(100, Math.round((completedWeeksCount / 12) * 100))}%` }} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="text-center pt-10">
+          <p className="text-[10px] text-slate-400 font-mono">Verified SEO Ustaad Academic Journey Report • No. {Math.random().toString(36).substr(2, 9).toUpperCase()}</p>
+        </div>
       </div>
 
       {/* Live Certificate Preview Card (Printable) */}
       <div
         id="certificate-print-area"
-        className="bg-white text-slate-900 rounded-3xl p-8 sm:p-12 border-4 border-blue-600 shadow-2xl relative overflow-hidden text-center space-y-6 max-w-4xl mx-auto"
+        className="bg-white text-slate-900 rounded-3xl p-8 sm:p-12 border-4 border-blue-600 shadow-2xl relative overflow-hidden text-center space-y-6 max-w-4xl mx-auto print:hidden"
       >
         {/* Subtle decorative inner border */}
         <div className="absolute inset-3 border border-blue-500/30 rounded-2xl pointer-events-none" />

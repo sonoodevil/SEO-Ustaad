@@ -125,6 +125,26 @@ export default function App() {
     return localStorage.getItem("seo_ustaad_student_name") || "Waseem Ahmad";
   });
 
+  const [totalStudySeconds, setTotalStudySeconds] = useState<number>(0);
+
+  useEffect(() => {
+    const syncStudyTime = () => {
+      try {
+        const saved = localStorage.getItem("seo_ustaad_stay_timer_data");
+        if (saved) {
+          const data = JSON.parse(saved);
+          setTotalStudySeconds(data.todaySeconds || 0);
+        }
+      } catch (e) {
+        console.warn("Failed to sync total study time", e);
+      }
+    };
+
+    syncStudyTime();
+    window.addEventListener("storage", syncStudyTime);
+    return () => window.removeEventListener("storage", syncStudyTime);
+  }, []);
+
   // User Profile & Learning Tracker Persistence
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
     try {
@@ -293,6 +313,7 @@ export default function App() {
             text: rawText,
             voiceName: selectedVoice,
             playbackRate,
+            customApiKey: userProfile.customGeminiKey,
           }),
         });
 
@@ -581,6 +602,9 @@ export default function App() {
             onSignOut={handleSignOut}
             studentName={currentUser?.displayName || userProfile.name}
             activeWeekTitle={CURRICULUM.find((w) => w.id === activeWeekId)?.title.en}
+            completedWeeksCount={completedWeeksCount}
+            avgQuizScore={avgQuizScore}
+            totalStudySeconds={totalStudySeconds}
           />
         )}
 
@@ -588,6 +612,7 @@ export default function App() {
           <DailyPlanView
             langMode={langMode}
             onOpenTutor={handleOpenTutorWithPrompt}
+            customGeminiKey={userProfile.customGeminiKey}
           />
         )}
 
@@ -635,6 +660,7 @@ export default function App() {
             completedWeeksCount={completedWeeksCount}
             totalWeeks={CURRICULUM.length}
             avgQuizScore={avgQuizScore}
+            totalStudySeconds={totalStudySeconds}
             langMode={langMode}
           />
         )}
@@ -674,6 +700,7 @@ export default function App() {
         }}
         onPlayAudio={handlePlayAudio}
         initialPrompt={tutorInitialPrompt}
+        customGeminiKey={userProfile.customGeminiKey}
       />
     </div>
   );
