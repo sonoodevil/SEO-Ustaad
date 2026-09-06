@@ -82,17 +82,19 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
       });
 
       if (!res.ok) {
-        throw new Error("Failed to get response from AI tutor");
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to get response from AI tutor");
       }
 
       const data = await res.json();
-      setMessages([...newHistory, { role: "model", text: data.reply }]);
+      setMessages([...newHistory, { role: "model", text: data.text || data.reply }]);
     } catch (err: any) {
+      const errorMsg = err.message || "معذرت، رابطہ قائم نہیں ہو سکا۔ براہ کرم اپنا سوال دوبارہ بھیجیں یا انٹرنیٹ کنکشن چیک کریں۔";
       setMessages([
         ...newHistory,
         {
           role: "model",
-          text: "معذرت، رابطہ قائم نہیں ہو سکا۔ براہ کرم اپنا سوال دوبارہ بھیجیں یا انٹرنیٹ کنکشن چیک کریں۔",
+          text: `**System Error:** ${errorMsg}\n\nبراہ کرم اپنا سوال دوبارہ بھیجیں یا انٹرنیٹ کنکشن چیک کریں۔`,
         },
       ]);
     } finally {

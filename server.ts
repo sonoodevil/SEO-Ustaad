@@ -50,7 +50,7 @@ async function executeWithGeminiKeyRotation<T>(
         apiKey: key,
         httpOptions: {
           headers: {
-            "User-Agent": "aistudio-seoustaad",
+            "User-Agent": "aistudio-build",
           },
         },
       });
@@ -201,7 +201,17 @@ Guidelines:
 
       if (Array.isArray(history)) {
         for (const item of history.slice(-10)) {
-          const textValue = (item.text || item.content || "").toString().trim();
+          // Robustly extract text from various history formats
+          let textValue = "";
+          if (item.text && typeof item.text === "string") {
+            textValue = item.text;
+          } else if (item.content && typeof item.content === "string") {
+            textValue = item.content;
+          } else if (Array.isArray(item.parts) && item.parts[0]?.text) {
+            textValue = item.parts[0].text;
+          }
+
+          textValue = textValue.trim();
           if (textValue) {
             chatContents.push({
               role: item.role === "user" ? "user" : "model",
@@ -223,15 +233,32 @@ Guidelines:
         throw new Error("No message content to send to AI");
       }
 
-      const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash", // Search grounding is stable on 1.5-flash
-        contents: chatContents,
-        config: {
-          systemInstruction,
-          temperature: 0.7,
-          tools: useSearch ? [{ googleSearch: {} }] : [],
-        },
-      });
+      let response;
+      try {
+        response = await ai.models.generateContent({
+          model: "gemini-3.8-flash",
+          contents: chatContents,
+          config: {
+            systemInstruction,
+            temperature: 0.7,
+            tools: useSearch ? [{ googleSearch: {} }] : [],
+          },
+        });
+      } catch (searchErr: any) {
+        if (useSearch) {
+          console.warn("Gemini Search grounding failed, retrying without tools:", searchErr.message);
+          response = await ai.models.generateContent({
+            model: "gemini-3.8-flash",
+            contents: chatContents,
+            config: {
+              systemInstruction,
+              temperature: 0.7,
+            },
+          });
+        } else {
+          throw searchErr;
+        }
+      }
 
       return {
         text: response.text || "I am ready to help you with SEO. Please ask your question.",

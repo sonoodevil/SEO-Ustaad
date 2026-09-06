@@ -8,7 +8,7 @@ import {
   signOut
 } from 'firebase/auth';
 import {
-  getFirestore,
+  initializeFirestore,
   doc,
   getDocFromServer,
   collection,
@@ -19,15 +19,19 @@ import {
   deleteDoc,
   query,
   where,
-  orderBy
+  orderBy,
+  persistentLocalCache
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Initialize Firebase App
 export const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with explicit database ID
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Initialize Firestore with explicit database ID and robust connection settings for sandbox
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache(),
+  experimentalAutoDetectLongPolling: true,
+}, firebaseConfig.firestoreDatabaseId);
 
 // Initialize Firebase Auth
 export const auth = getAuth(app);
@@ -59,11 +63,17 @@ let isSigningIn = false;
 // Test connection on boot
 export async function testFirestoreConnection() {
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
+    // We use a small timeout to avoid blocking boot if connection is transiently unavailable
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Connection test timeout')), 5000)
+    );
+    await Promise.race([
+      getDocFromServer(doc(db, 'test', 'connection')),
+      timeoutPromise
+    ]);
+    console.log('Firebase Firestore connection verified.');
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firebase Firestore offline check:', error.message);
-    }
+    console.warn('Firebase Firestore connection check:', error instanceof Error ? error.message : String(error));
   }
 }
 
